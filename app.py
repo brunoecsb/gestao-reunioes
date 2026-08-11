@@ -294,7 +294,7 @@ def _ler_registros_com_cache(nome_aba, headers):
     ultimo_erro = None
     for tentativa in range(3):
         try:
-            return ws.get_all_records()
+            return ws.get_all_records(numericise_ignore=["all"])
         except gspread.exceptions.APIError as e:
             ultimo_erro = e
             time.sleep(1.5 * (tentativa + 1))
@@ -796,6 +796,19 @@ else:
                                 data_lida = dados.get("data") or datetime.today().strftime('%d/%m/%Y')
                                 motivo_lido = dados.get("motivo", "Reunião Geral")
                                 identificados = dados.get("identificados", [])
+                                # Normaliza tudo pra texto e sem espaços nas pontas, pra
+                                # comparar de forma confiável independente de a IA devolver
+                                # o código como número ou com espaço a mais.
+                                identificados_norm = [str(x).strip() for x in identificados]
+
+                                # Conjunto com todo código/documento válido no cadastro,
+                                # pra avisar se algo lido na foto não bate com ninguém.
+                                codigos_validos = set()
+                                for _, p in df_part.iterrows():
+                                    codigos_validos.add(str(p["codigo"]).strip())
+                                    if p["documento"]:
+                                        codigos_validos.add(str(p["documento"]).strip())
+                                nao_reconhecidos = [x for x in identificados_norm if x and x not in codigos_validos]
 
                                 df_reunioes, ws_reunioes = carregar_tabela("reunioes", REUNIAO_HEADERS)
                                 novo_reuniao_id = proximo_id(df_reunioes)
@@ -805,7 +818,11 @@ else:
                                 prox_id_pres = proximo_id(df_pres)
                                 linhas_novas = []
                                 for _, p in df_part.iterrows():
-                                    foi_encontrado = (p["codigo"] in identificados) or (p["documento"] and p["documento"] in identificados)
+                                    codigo_norm = str(p["codigo"]).strip()
+                                    documento_norm = str(p["documento"]).strip() if p["documento"] else ""
+                                    foi_encontrado = (codigo_norm in identificados_norm) or (
+                                        documento_norm and documento_norm in identificados_norm
+                                    )
                                     status = "Presente" if foi_encontrado else "Ausente"
                                     linhas_novas.append([prox_id_pres, novo_reuniao_id, int(p["id"]), status])
                                     prox_id_pres += 1
@@ -813,6 +830,13 @@ else:
                                 invalidar_cache_planilha()
 
                                 st.success(f"Salvo! Data: {data_lida} - {motivo_lido}")
+                                if nao_reconhecidos:
+                                    st.warning(
+                                        "A IA leu na folha os códigos/documentos abaixo, mas nenhum "
+                                        "participante cadastrado corresponde a eles (pode ser erro de "
+                                        "leitura da foto ou alguém sem cadastro): "
+                                        + ", ".join(nao_reconhecidos)
+                                    )
                             else:
                                 st.error("Erro na leitura da IA.")
                         except Exception as e:
