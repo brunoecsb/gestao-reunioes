@@ -160,7 +160,7 @@ if not st.session_state["logado"]:
         
         if submit:
             # Você pode alterar a senha e o usuário aqui
-            if usuario == "admin" and senha == "admin123":
+            if usuario == st.secrets["USER_LOGIN"] and senha == st.secrets["USER_PASS"]:
                 st.session_state["logado"] = True
                 st.rerun()
             else:
