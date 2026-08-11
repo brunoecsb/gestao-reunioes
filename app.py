@@ -2,6 +2,7 @@
 import os
 import re
 import json
+import time
 import random
 from pathlib import Path
 from datetime import datetime
@@ -281,10 +282,42 @@ def get_ws(nome_aba, headers):
     return ws
 
 
-def carregar_tabela(nome_aba, headers):
-    """Lê a aba inteira de uma vez (1 chamada de API) e devolve como DataFrame + a worksheet."""
+@st.cache_data(ttl=8, show_spinner=False)
+def _ler_registros_com_cache(nome_aba, headers):
+    """Busca os registros crus da aba (lista de dicionários). Fica em
+    cache por poucos segundos: como cada clique no app faz o Streamlit
+    rodar o script inteiro de novo, sem isso a mesma aba seria relida
+    várias vezes por segundo e estouraria o limite de requisições da
+    API do Google Sheets (60 leituras/minuto por usuário). Tenta de
+    novo automaticamente se a API responder com erro passageiro."""
     ws = get_ws(nome_aba, headers)
-    registros = ws.get_all_records()
+    ultimo_erro = None
+    for tentativa in range(3):
+        try:
+            return ws.get_all_records()
+        except gspread.exceptions.APIError as e:
+            ultimo_erro = e
+            time.sleep(1.5 * (tentativa + 1))
+    raise ultimo_erro
+
+
+def invalidar_cache_planilha():
+    """Chame depois de qualquer escrita (append/update/delete) para que
+    a próxima leitura traga o dado novo em vez do cache antigo."""
+    _ler_registros_com_cache.clear()
+
+
+def carregar_tabela(nome_aba, headers):
+    """Lê a aba inteira (com cache curto) e devolve como DataFrame + a worksheet."""
+    ws = get_ws(nome_aba, headers)
+    try:
+        registros = _ler_registros_com_cache(nome_aba, headers)
+    except gspread.exceptions.APIError:
+        st.error(
+            "O Google Sheets recebeu requisições demais em pouco tempo e recusou a "
+            "leitura. Aguarde uns 30 segundos e recarregue a página."
+        )
+        st.stop()
     df = pd.DataFrame(registros)
     if df.empty:
         df = pd.DataFrame(columns=headers)
@@ -404,6 +437,7 @@ def modal_editar_reuniao(reuniao_id):
                 ws_pres.append_row([prox_id_pres, reuniao_id, p_id, novo_status])
                 prox_id_pres += 1
 
+        invalidar_cache_planilha()
         st.success("Reunião atualizada com sucesso!")
         st.rerun()
 
@@ -423,6 +457,7 @@ def deletar_reuniao(reuniao_id):
     ws_pres.append_row(PRESENCA_HEADERS)
     if not restantes.empty:
         ws_pres.append_rows(restantes.astype(object).values.tolist())
+    invalidar_cache_planilha()
 
 
 @st.dialog("🗑️ Excluir Reunião")
@@ -495,6 +530,7 @@ else:
                     if c1.form_submit_button("Salvar"):
                         linha = int(df_part.index[df_part["id"] == st.session_state["edit_id"]][0]) + 2
                         ws_part.update(range_name=f"C{linha}:D{linha}", values=[[novo_nome, novo_doc]])
+                        invalidar_cache_planilha()
                         st.session_state["edit_id"] = None
                         st.rerun()
                     if c2.form_submit_button("Cancelar"):
@@ -562,6 +598,7 @@ else:
                             novo_id = proximo_id(df_part)
                             cod = str(random.randint(100000, 999999))
                             ws_part.append_row([novo_id, cod, nome, doc])
+                            invalidar_cache_planilha()
                             st.success("Cadastrado com sucesso!")
                             st.rerun()
                     else:
@@ -586,6 +623,7 @@ else:
                         if st.button("❌", key=f"d_{row['id']}"):
                             linha = int(df_part.index[df_part["id"] == row["id"]][0]) + 2
                             ws_part.delete_rows(linha)
+                            invalidar_cache_planilha()
                             st.rerun()
         else:
             st.info("Nenhum participante.")
@@ -772,6 +810,7 @@ else:
                                     linhas_novas.append([prox_id_pres, novo_reuniao_id, int(p["id"]), status])
                                     prox_id_pres += 1
                                 ws_pres.append_rows(linhas_novas)
+                                invalidar_cache_planilha()
 
                                 st.success(f"Salvo! Data: {data_lida} - {motivo_lido}")
                             else:
