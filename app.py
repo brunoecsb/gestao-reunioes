@@ -76,6 +76,52 @@ st.markdown('''
         box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
     }
 
+    /* CORREÇÃO MOBILE: por padrão o Streamlit empilha colunas verticalmente
+       em telas estreitas. Isso jogava os botões de editar/excluir para
+       baixo do nome em vez de ficarem ao lado. Forçamos a linha a se
+       manter horizontal sempre. */
+    [data-testid="stHorizontalBlock"] {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+    [data-testid="stHorizontalBlock"] [data-testid="stColumn"] {
+        min-width: 0 !important;
+    }
+
+    /* Botões de ação (ícone) nas listas de membros e reuniões:
+       o seletor [class*="st-key-..."] pega o botão pelo prefixo da key,
+       independente do id da linha. */
+    [class*="st-key-e_"] button, [class*="st-key-edit_r_"] button {
+        width: 42px !important; height: 42px !important; min-height: 42px !important;
+        padding: 0 !important; border-radius: 12px !important; font-size: 1.05rem !important;
+        background: #eef2ff !important; border: 1px solid #c7d2fe !important; color: #4338ca !important;
+        box-shadow: none !important;
+    }
+    [class*="st-key-d_"] button, [class*="st-key-del_r_"] button {
+        width: 42px !important; height: 42px !important; min-height: 42px !important;
+        padding: 0 !important; border-radius: 12px !important; font-size: 1.05rem !important;
+        background: #fef2f2 !important; border: 1px solid #fecaca !important; color: #dc2626 !important;
+        box-shadow: none !important;
+    }
+    [class*="st-key-e_"] button:hover, [class*="st-key-edit_r_"] button:hover {
+        background: #e0e7ff !important; border-color: #a5b4fc !important; transform: none !important;
+    }
+    [class*="st-key-d_"] button:hover, [class*="st-key-del_r_"] button:hover {
+        background: #fee2e2 !important; border-color: #fca5a5 !important; transform: none !important;
+    }
+
+    /* Modais (editar/excluir reunião) */
+    [data-testid*="Dialog"] {
+        border-radius: 22px !important;
+    }
+    [data-testid*="Dialog"] h1, [data-testid*="Dialog"] [data-testid="stDialogTitle"] {
+        font-family: 'Sora', sans-serif !important;
+        font-weight: 800 !important;
+        color: #0f172a !important;
+    }
+
     /* Selo/ícone circular da tela de login */
     .login-badge {
         width: 60px; height: 60px; border-radius: 18px;
@@ -528,12 +574,10 @@ else:
                         st.markdown(html_reuniao, unsafe_allow_html=True)
 
                     with col_editar:
-                        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
                         if st.button("✏️", key=f"edit_r_{reuniao['id']}", help="Editar reunião"):
                             modal_editar_reuniao(int(reuniao["id"]))
 
                     with col_excluir:
-                        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
                         if st.button("🗑️", key=f"del_r_{reuniao['id']}", help="Excluir reunião"):
                             modal_excluir_reuniao(int(reuniao["id"]), reuniao["data"], reuniao["motivo"])
         else:
