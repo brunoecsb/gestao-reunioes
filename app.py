@@ -84,10 +84,14 @@ st.markdown('''
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         align-items: center !important;
-        gap: 8px !important;
+        gap: 14px !important;
     }
     [data-testid="stHorizontalBlock"] [data-testid="stColumn"] {
         min-width: 0 !important;
+    }
+    [class*="st-key-e_"], [class*="st-key-d_"],
+    [class*="st-key-edit_r_"], [class*="st-key-del_r_"] {
+        margin-left: 4px !important;
     }
 
     /* Botões de ação (ícone) nas listas de membros e reuniões:
@@ -385,7 +389,7 @@ def modal_editar_reuniao(reuniao_id):
 
     if st.button("💾 Salvar Alterações", type="primary", use_container_width=True):
         linha_r = int(df_reunioes.index[df_reunioes["id"] == reuniao_id][0]) + 2
-        ws_reunioes.update(f"B{linha_r}:C{linha_r}", [[nova_data, novo_motivo]])
+        ws_reunioes.update(range_name=f"B{linha_r}:C{linha_r}", values=[[nova_data, novo_motivo]])
 
         prox_id_pres = proximo_id(df_pres)
         for _, p_row in df_part.iterrows():
@@ -395,7 +399,7 @@ def modal_editar_reuniao(reuniao_id):
 
             if not existente.empty:
                 linha_p = int(existente.index[0]) + 2
-                ws_pres.update(f"D{linha_p}", [[novo_status]])
+                ws_pres.update(range_name=f"D{linha_p}", values=[[novo_status]])
             else:
                 ws_pres.append_row([prox_id_pres, reuniao_id, p_id, novo_status])
                 prox_id_pres += 1
@@ -490,7 +494,7 @@ else:
                     c1, c2 = st.columns(2)
                     if c1.form_submit_button("Salvar"):
                         linha = int(df_part.index[df_part["id"] == st.session_state["edit_id"]][0]) + 2
-                        ws_part.update(f"C{linha}:D{linha}", [[novo_nome, novo_doc]])
+                        ws_part.update(range_name=f"C{linha}:D{linha}", values=[[novo_nome, novo_doc]])
                         st.session_state["edit_id"] = None
                         st.rerun()
                     if c2.form_submit_button("Cancelar"):
@@ -498,16 +502,68 @@ else:
                         st.rerun()
         else:
             st.markdown("#### ➕ Novo Membro")
+
+            with st.expander("📷 Preencher automaticamente com foto do documento"):
+                st.caption("Tire uma foto do documento (RG, CPF, crachá etc.). A IA tenta ler o nome e o número — você confere antes de salvar.")
+                foto_doc = st.camera_input("Foto do documento", key="foto_doc_novo_membro")
+
+                if foto_doc is not None and st.button("🔎 Ler documento", use_container_width=True):
+                    with st.spinner("Lendo documento..."):
+                        img_path = PASTA_FOLHAS / "temp_doc.jpg"
+                        try:
+                            with open(img_path, "wb") as f:
+                                f.write(foto_doc.getbuffer())
+
+                            api_key = os.environ.get("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY")
+                            if not api_key:
+                                st.error("Chave da API do Gemini não configurada nos Secrets!")
+                                st.stop()
+
+                            client = genai.Client(api_key=api_key)
+                            prompt = """
+                            You are reading an identification document or badge in a photo.
+                            Extract the person's full name and their main document number (CPF/RG or similar).
+                            Return ONLY JSON: {"nome": "...", "documento": "..."}
+                            If a field can't be read confidently, leave it as an empty string.
+                            """
+                            myfile = client.files.upload(file=str(img_path))
+                            response = client.models.generate_content(model="gemini-3.1-flash-lite", contents=[myfile, prompt])
+                            client.files.delete(name=myfile.name)
+
+                            match_json = re.search(r"\{.*\}", response.text, re.DOTALL)
+                            if match_json:
+                                dados_doc = json.loads(match_json.group(0))
+                                st.session_state["cad_nome"] = dados_doc.get("nome", "")
+                                st.session_state["cad_documento"] = dados_doc.get("documento", "")
+                                st.success("Dados lidos! Confira e ajuste no formulário abaixo antes de salvar.")
+                            else:
+                                st.error("Não consegui ler os dados do documento. Preencha manualmente abaixo.")
+                        except Exception as e:
+                            print(f"[ERRO leitura documento] {e}")
+                            st.error("Não foi possível ler o documento. Tente novamente ou preencha manualmente.")
+                        finally:
+                            if img_path.exists():
+                                img_path.unlink()
+
             with st.form("form_cad", clear_on_submit=True):
-                nome = st.text_input("Nome Completo")
-                doc = st.text_input("Documento (CPF/RG)")
+                nome = st.text_input("Nome Completo", key="cad_nome")
+                doc = st.text_input("Documento (CPF/RG)", key="cad_documento")
                 if st.form_submit_button("Salvar Cadastro", use_container_width=True):
                     if nome:
-                        novo_id = proximo_id(df_part)
-                        cod = str(random.randint(100000, 999999))
-                        ws_part.append_row([novo_id, cod, nome, doc])
-                        st.success("Cadastrado com sucesso!")
-                        st.rerun()
+                        doc_limpo = doc.strip()
+                        duplicado = False
+                        if doc_limpo and not df_part.empty:
+                            duplicado = (df_part["documento"].astype(str).str.strip() == doc_limpo).any()
+
+                        if duplicado:
+                            nome_existente = df_part[df_part["documento"].astype(str).str.strip() == doc_limpo].iloc[0]["nome"]
+                            st.warning(f"Esse documento já está cadastrado para **{nome_existente}**. Cadastro não realizado para evitar duplicidade.")
+                        else:
+                            novo_id = proximo_id(df_part)
+                            cod = str(random.randint(100000, 999999))
+                            ws_part.append_row([novo_id, cod, nome, doc])
+                            st.success("Cadastrado com sucesso!")
+                            st.rerun()
                     else:
                         st.warning("O nome é obrigatório.")
 
