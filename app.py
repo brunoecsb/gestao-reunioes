@@ -21,11 +21,10 @@ DB_FILE = PASTA_PROJETO / "reunioes.db"
 st.set_page_config(page_title="Gestão de Reuniões", layout="centered", initial_sidebar_state="collapsed")
 
 # ==========================================
-# CSS: CORES FIXAS E BLINDADAS CONTRA O MODO ESCURO
+# CSS: ESTILO PREMIUM E BLINDADO
 # ==========================================
 st.markdown('''
 <style>
-    /* Força o fundo geral padronizado */
     .stApp { 
         background: linear-gradient(135deg, #cbd5e1 0%, #f1f5f9 100%) !important; 
     }
@@ -35,25 +34,14 @@ st.markdown('''
     h3 { color: #1e293b !important; font-size: 1.4rem; font-weight: 700; margin-bottom: 15px;}
     h4 { color: #334155 !important; font-size: 1.15rem; font-weight: 700; margin-bottom: 15px; margin-top: 10px;}
     
-    /* Caixa de Login Blindada */
-    .login-box {
-        background: #ffffff !important;
-        padding: 30px;
-        border-radius: 24px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-        margin-top: 20px;
-        border: 1px solid #cbd5e1;
-    }
-
-    /* Corrige as caixas de texto para nunca ficarem escuras de forma errada */
+    /* Corrige as caixas de texto */
     .stTextInput input {
-        background-color: #f8fafc !important;
+        background-color: #ffffff !important;
         color: #0f172a !important;
         border: 1px solid #cbd5e1 !important;
         border-radius: 12px !important;
     }
 
-    /* Labels dos inputs visíveis */
     .stTextInput label {
         color: #334155 !important;
         font-weight: 600;
@@ -163,31 +151,31 @@ if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
 if not st.session_state["logado"]:
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown('<div class="login-box">', unsafe_allow_html=True)
-    st.markdown("<h2 style='text-align: center; color: #0f172a; margin-bottom: 20px;'>🔒 Acesso Restrito</h2>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
     
-    with st.form("form_login"):
-        usuario = st.text_input("Usuário")
-        senha = st.text_input("Senha", type="password")
-        submit = st.form_submit_button("Entrar no Sistema", type="primary", use_container_width=True)
+    # Usamos o container nativo do Streamlit com borda para substituir aquela caixa HTML que bugava
+    with st.container(border=True):
+        st.markdown("<h2 style='text-align: center; color: #0f172a; margin-bottom: 20px;'>🔒 Acesso Restrito</h2>", unsafe_allow_html=True)
         
-        if submit:
-            # Puxa dos segredos do Streamlit se houver, senão usa padrão
-            try:
-                u_cad = st.secrets["USER_LOGIN"]
-                s_cad = st.secrets["USER_PASS"]
-            except Exception:
-                u_cad = "admin"
-                s_cad = "admin123"
-                
-            if usuario == u_cad and senha == s_cad:
-                st.session_state["logado"] = True
-                st.rerun()
-            else:
-                st.error("Credenciais incorretas. Tente novamente.")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+        with st.form("form_login"):
+            usuario = st.text_input("Usuário")
+            senha = st.text_input("Senha", type="password")
+            submit = st.form_submit_button("Entrar no Sistema", type="primary", use_container_width=True)
+            
+            if submit:
+                try:
+                    u_cad = st.secrets["USER_LOGIN"]
+                    s_cad = st.secrets["USER_PASS"]
+                except Exception:
+                    u_cad = "admin"
+                    s_cad = "admin123"
+                    
+                if usuario == u_cad and senha == s_cad:
+                    st.session_state["logado"] = True
+                    st.rerun()
+                else:
+                    st.error("Credenciais incorretas. Tente novamente.")
+                    
     st.stop()
 
 # Variáveis de Navegação
