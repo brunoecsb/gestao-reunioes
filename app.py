@@ -45,14 +45,61 @@ st.markdown("""
 # ==========================================
 st.markdown('''
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&display=swap');
+
     .stApp { 
         background: linear-gradient(135deg, #cbd5e1 0%, #f1f5f9 100%) !important; 
     }
     #MainMenu, header, footer {visibility: hidden;}
 
-    h1 { color: #0f172a !important; text-align: center; font-weight: 800; margin-bottom: 25px; margin-top: -30px; font-size: 1.8rem;}
-    h3 { color: #1e293b !important; font-size: 1.4rem; font-weight: 700; margin-bottom: 15px;}
-    h4 { color: #334155 !important; font-size: 1.15rem; font-weight: 700; margin-bottom: 15px; margin-top: 10px;}
+    h1 {
+        font-family: 'Sora', sans-serif !important;
+        text-align: center;
+        font-weight: 800;
+        margin-bottom: 4px;
+        margin-top: -30px;
+        font-size: 1.9rem;
+        letter-spacing: -0.01em;
+        background: linear-gradient(135deg, #4338ca 0%, #1e293b 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .app-subtitle { text-align: center; color: #64748b; font-size: 0.9rem; margin-bottom: 28px; }
+    h3 { font-family: 'Sora', sans-serif !important; color: #1e293b !important; font-size: 1.4rem; font-weight: 700; margin-bottom: 15px;}
+    h4 { font-family: 'Sora', sans-serif !important; color: #334155 !important; font-size: 1.15rem; font-weight: 700; margin-bottom: 15px; margin-top: 10px;}
+
+    /* Cartões com borda (st.container(border=True)) ganham mais presença */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-radius: 18px !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+    }
+
+    /* Selo/ícone circular da tela de login */
+    .login-badge {
+        width: 60px; height: 60px; border-radius: 18px;
+        background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.7rem; margin: 4px auto 16px auto;
+        box-shadow: 0 10px 22px -8px rgba(67, 56, 202, 0.55);
+    }
+    .login-title {
+        text-align: center; font-family: 'Sora', sans-serif; font-weight: 800;
+        font-size: 1.5rem; color: #0f172a; margin-bottom: 4px;
+    }
+    .login-subtitle { text-align: center; color: #64748b; font-size: 0.88rem; margin-bottom: 22px; }
+
+    /* Barra de marca no topo das telas internas */
+    .topbar {
+        display: flex; align-items: center; gap: 10px;
+        background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%);
+        color: #ffffff !important; padding: 10px 18px; border-radius: 14px;
+        font-family: 'Sora', sans-serif; font-weight: 700; font-size: 0.85rem;
+        letter-spacing: 0.04em; margin-bottom: 16px; text-transform: uppercase;
+        box-shadow: 0 8px 18px -8px rgba(67, 56, 202, 0.45);
+    }
+    .topbar .dot { width: 7px; height: 7px; border-radius: 50%; background: #a5f3fc; flex-shrink: 0; }
     
     .stTextInput input {
         background-color: #ffffff !important;
@@ -74,6 +121,8 @@ st.markdown('''
         box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05);
         height: 120px;
         color: #334155 !important;
+        font-family: 'Sora', sans-serif;
+        font-weight: 600;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -221,10 +270,14 @@ if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
 if not st.session_state["logado"]:
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
     with st.container(border=True):
-        st.markdown("<h2 style='text-align: center; color: #0f172a; margin-bottom: 20px;'>🔒 Acesso Restrito</h2>", unsafe_allow_html=True)
+        st.markdown("""
+            <div class="login-badge">🔒</div>
+            <div class="login-title">Acesso Restrito</div>
+            <div class="login-subtitle">Entre com suas credenciais para continuar</div>
+        """, unsafe_allow_html=True)
 
         with st.form("form_login"):
             usuario = st.text_input("Usuário")
@@ -304,11 +357,45 @@ def modal_editar_reuniao(reuniao_id):
         st.success("Reunião atualizada com sucesso!")
         st.rerun()
 
+
+def deletar_reuniao(reuniao_id):
+    """Remove a reunião e todas as presenças ligadas a ela. Reescreve a
+    aba 'presencas' inteira (sem a reunião apagada) em vez de deletar
+    linha por linha, o que evita bug de índice mudando durante o loop."""
+    df_reunioes, ws_reunioes = carregar_tabela("reunioes", REUNIAO_HEADERS)
+    linha = df_reunioes.index[df_reunioes["id"] == reuniao_id]
+    if len(linha):
+        ws_reunioes.delete_rows(int(linha[0]) + 2)
+
+    df_pres, ws_pres = carregar_tabela("presencas", PRESENCA_HEADERS)
+    restantes = df_pres[df_pres["reuniao_id"] != reuniao_id]
+    ws_pres.clear()
+    ws_pres.append_row(PRESENCA_HEADERS)
+    if not restantes.empty:
+        ws_pres.append_rows(restantes.astype(object).values.tolist())
+
+
+@st.dialog("🗑️ Excluir Reunião")
+def modal_excluir_reuniao(reuniao_id, data_reuniao, motivo_reuniao):
+    st.warning(
+        f"Tem certeza que deseja excluir a reunião de **{data_reuniao}** "
+        f"({motivo_reuniao})? Isso apaga também o registro de presença "
+        f"dela. Essa ação não pode ser desfeita."
+    )
+    col_cancelar, col_confirmar = st.columns(2)
+    if col_cancelar.button("Cancelar", use_container_width=True):
+        st.rerun()
+    if col_confirmar.button("Sim, excluir", type="primary", use_container_width=True):
+        deletar_reuniao(reuniao_id)
+        st.success("Reunião excluída.")
+        st.rerun()
+
 # ==========================================
 # TELA 1: MENU PRINCIPAL
 # ==========================================
 if st.session_state["pagina_ativa"] == "menu":
     st.title("Gestão de Reuniões")
+    st.markdown('<p class="app-subtitle">Selecione uma opção abaixo</p>', unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -333,6 +420,8 @@ if st.session_state["pagina_ativa"] == "menu":
 # TELA 2: CONTEÚDO DOS CARDS
 # ==========================================
 else:
+    st.markdown('<div class="topbar"><span class="dot"></span>Gestão de Reuniões</div>', unsafe_allow_html=True)
+
     if st.button("⬅️ Voltar ao Menu", type="secondary"):
         st.session_state["pagina_ativa"] = "menu"
         st.session_state["edit_id"] = None
@@ -415,7 +504,7 @@ else:
         if not df_reunioes_ordenado.empty:
             with st.container(height=350, border=True):
                 for _, reuniao in df_reunioes_ordenado.iterrows():
-                    col_detalhes, col_editar = st.columns([85, 15])
+                    col_detalhes, col_editar, col_excluir = st.columns([76, 12, 12])
 
                     with col_detalhes:
                         html_reuniao = f"""<details class="custom-dropdown" style="margin-bottom: 5px; margin-top: 5px;">
@@ -442,6 +531,11 @@ else:
                         st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
                         if st.button("✏️", key=f"edit_r_{reuniao['id']}", help="Editar reunião"):
                             modal_editar_reuniao(int(reuniao["id"]))
+
+                    with col_excluir:
+                        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+                        if st.button("🗑️", key=f"del_r_{reuniao['id']}", help="Excluir reunião"):
+                            modal_excluir_reuniao(int(reuniao["id"]), reuniao["data"], reuniao["motivo"])
         else:
             st.info("Nenhuma reunião registrada ainda.")
 
