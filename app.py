@@ -12,7 +12,6 @@ from google import genai
 # ==========================================
 # CONFIGURAÇÃO DE CAMINHOS (PREPARADO PARA NUVEM)
 # ==========================================
-# Cria a pasta do banco de dados no mesmo local onde o app está rodando
 PASTA_PROJETO = Path("dados_sistema")
 PASTA_PROJETO.mkdir(exist_ok=True)
 PASTA_FOLHAS = PASTA_PROJETO / "folhas"
@@ -22,39 +21,53 @@ DB_FILE = PASTA_PROJETO / "reunioes.db"
 st.set_page_config(page_title="Gestão de Reuniões", layout="centered", initial_sidebar_state="collapsed")
 
 # ==========================================
-# CSS: ESTILO PREMIUM COM FUNDO GRADIENTE
+# CSS: CORES FIXAS E BLINDADAS CONTRA O MODO ESCURO
 # ==========================================
 st.markdown('''
 <style>
-    /* Fundo Gradiente Elegante */
+    /* Força o fundo geral padronizado */
     .stApp { 
-        background: linear-gradient(135deg, #e2e8f0 0%, #f8fafc 100%); 
+        background: linear-gradient(135deg, #cbd5e1 0%, #f1f5f9 100%) !important; 
     }
     #MainMenu, header, footer {visibility: hidden;}
 
-    h1 { color: #0f172a; text-align: center; font-weight: 800; margin-bottom: 25px; margin-top: -30px; font-size: 1.8rem;}
-    h3 { color: #1e293b; font-size: 1.4rem; font-weight: 700; margin-bottom: 15px;}
-    h4 { color: #334155; font-size: 1.15rem; font-weight: 700; margin-bottom: 15px; margin-top: 10px;}
+    h1 { color: #0f172a !important; text-align: center; font-weight: 800; margin-bottom: 25px; margin-top: -30px; font-size: 1.8rem;}
+    h3 { color: #1e293b !important; font-size: 1.4rem; font-weight: 700; margin-bottom: 15px;}
+    h4 { color: #334155 !important; font-size: 1.15rem; font-weight: 700; margin-bottom: 15px; margin-top: 10px;}
     
-    /* Login Box */
+    /* Caixa de Login Blindada */
     .login-box {
-        background: #ffffff;
-        padding: 40px;
+        background: #ffffff !important;
+        padding: 30px;
         border-radius: 24px;
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-        margin-top: 50px;
-        border: 1px solid #e2e8f0;
+        margin-top: 20px;
+        border: 1px solid #cbd5e1;
+    }
+
+    /* Corrige as caixas de texto para nunca ficarem escuras de forma errada */
+    .stTextInput input {
+        background-color: #f8fafc !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 12px !important;
+    }
+
+    /* Labels dos inputs visíveis */
+    .stTextInput label {
+        color: #334155 !important;
+        font-weight: 600;
     }
 
     /* Cards do Menu SPA */
     div.stButton > button[kind="primary"] {
-        background: #ffffff;
-        border: none;
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
         border-radius: 18px;
         padding: 20px 10px;
         box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05);
         height: 120px;
-        color: #334155;
+        color: #334155 !important;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -65,12 +78,13 @@ st.markdown('''
     div.stButton > button[kind="primary"]:hover {
         transform: translateY(-4px);
         box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1);
-        color: #3b82f6;
+        color: #3b82f6 !important;
+        border-color: #3b82f6 !important;
     }
     
     /* Container Principal */
     .card-container {
-        background-color: #ffffff;
+        background-color: #ffffff !important;
         padding: 25px;
         border-radius: 24px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
@@ -80,7 +94,7 @@ st.markdown('''
     
     /* Design do Engajamento */
     .eng-card {
-        background: #ffffff;
+        background: #ffffff !important;
         border-radius: 16px;
         padding: 20px;
         margin-top: 15px;
@@ -89,8 +103,8 @@ st.markdown('''
         box-shadow: 0 2px 8px rgba(0,0,0,0.02);
     }
     .eng-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .eng-name { font-weight: 800; color: #1e293b; font-size: 1.15rem; }
-    .eng-pct { font-weight: 800; color: #4338ca; font-size: 1.15rem; }
+    .eng-name { font-weight: 800; color: #1e293b !important; font-size: 1.15rem; }
+    .eng-pct { font-weight: 800; color: #4338ca !important; font-size: 1.15rem; }
     
     .eng-bar-bg { background: #e2e8f0; border-radius: 10px; height: 10px; width: 100%; overflow: hidden; margin-bottom: 15px;}
     .eng-bar-fill { background: #4338ca; height: 100%; border-radius: 10px; transition: width 0.5s ease;}
@@ -109,7 +123,7 @@ st.markdown('''
     details.custom-dropdown summary {
         padding: 12px 15px;
         font-size: 0.95rem;
-        color: #475569;
+        color: #475569 !important;
         cursor: pointer;
         font-weight: 600;
         list-style: none;
@@ -124,8 +138,8 @@ st.markdown('''
     }
     details.custom-dropdown[open] summary::before { transform: rotate(90deg); }
     
-    .dropdown-content { padding: 15px; border-top: 1px solid #e2e8f0; background-color: #ffffff; }
-    .hist-line { font-size: 0.9rem; margin-bottom: 8px; color: #334155; }
+    .dropdown-content { padding: 15px; border-top: 1px solid #e2e8f0; background-color: #ffffff !important; }
+    .hist-line { font-size: 0.9rem; margin-bottom: 8px; color: #334155 !important; }
     
 </style>
 ''', unsafe_allow_html=True)
@@ -149,7 +163,7 @@ if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
 if not st.session_state["logado"]:
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div class="login-box">', unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; color: #0f172a; margin-bottom: 20px;'>🔒 Acesso Restrito</h2>", unsafe_allow_html=True)
     
@@ -159,15 +173,22 @@ if not st.session_state["logado"]:
         submit = st.form_submit_button("Entrar no Sistema", type="primary", use_container_width=True)
         
         if submit:
-            # Você pode alterar a senha e o usuário aqui
-            if usuario == st.secrets["USER_LOGIN"] and senha == st.secrets["USER_PASS"]:
+            # Puxa dos segredos do Streamlit se houver, senão usa padrão
+            try:
+                u_cad = st.secrets["USER_LOGIN"]
+                s_cad = st.secrets["USER_PASS"]
+            except Exception:
+                u_cad = "admin"
+                s_cad = "admin123"
+                
+            if usuario == u_cad and senha == s_cad:
                 st.session_state["logado"] = True
                 st.rerun()
             else:
                 st.error("Credenciais incorretas. Tente novamente.")
     
     st.markdown('</div>', unsafe_allow_html=True)
-    st.stop() # Bloqueia o carregamento do resto do aplicativo se não estiver logado
+    st.stop()
 
 # Variáveis de Navegação
 if "pagina_ativa" not in st.session_state:
@@ -175,21 +196,18 @@ if "pagina_ativa" not in st.session_state:
 if "edit_id" not in st.session_state:
     st.session_state["edit_id"] = None
 
-
 # ==========================================
 # MODAL PARA EDITAR REUNIÕES
 # ==========================================
 @st.dialog("✏️ Editar Reunião")
 def modal_editar_reuniao(reuniao_id):
     conn = sqlite3.connect(DB_FILE)
-    
     r = pd.read_sql(f"SELECT data, motivo FROM reunioes WHERE id={reuniao_id}", conn).iloc[0]
     
     nova_data = st.text_input("Data da Reunião", value=r['data'])
     novo_motivo = st.text_input("Motivo da Reunião", value=r['motivo'])
     
     st.markdown("#### Lista de Presença")
-    
     participantes = pd.read_sql("""
         SELECT p.id, p.nome, p.codigo, pr.status
         FROM participantes p
@@ -245,7 +263,6 @@ if st.session_state["pagina_ativa"] == "menu":
             st.session_state["pagina_ativa"] = "lancar"
             st.rerun()
             
-    # Botão discreto para Sair (Logout)
     st.markdown("<br><br>", unsafe_allow_html=True)
     if st.button("Desconectar do Sistema", use_container_width=True):
         st.session_state["logado"] = False
@@ -472,7 +489,6 @@ else:
                             with open(img_path, "wb") as f:
                                 f.write(foto_arquivo.getbuffer())
                                 
-                            # COLE SUA CHAVE AQUI OU USE SECRETS NA NUVEM
                             api_key = os.environ.get("GEMINI_API_KEY")
                             try:
                                 if not api_key:
@@ -484,18 +500,18 @@ else:
                                 api_key = "COLE_SUA_CHAVE_AQUI"
                                 
                             if api_key == "COLE_SUA_CHAVE_AQUI":
-                                st.error("Você esqueceu de configurar a chave da API do Gemini!")
+                                st.error("Software sem chave da API do Gemini configurada nos Secrets!")
                                 st.stop()
                                 
                             client = genai.Client(api_key=api_key)
                             lista_ref = "\n".join([f"ID:{p[0]} | Cód: {p[1]} | Doc: {p[3]}" for p in participantes_IA])
                             
                             prompt = f"""
-                            Você é um auditor. Analise esta folha de presença manuscrita.
-                            Lista de referência: {lista_ref}
-                            Procure na folha o Cód ou Doc.
-                            Extraia a data (DD/MM/AAAA) e motivo.
-                            Retorne JSON: {{"data": "DD/MM/AAAA", "motivo": "tema", "identificados": ["cod ou doc"]}}
+                            You are an auditor. Analyze this handwritten attendance sheet.
+                            Reference list: {lista_ref}
+                            Look for the Code (Cód) or Document (Doc) on the sheet.
+                            Extract the date (DD/MM/AAAA) and reason/topic (motivo).
+                            Return JSON: {{"data": "DD/MM/AAAA", "motivo": "theme", "identificados": ["code_or_doc"]}}
                             """
                             
                             myfile = client.files.upload(file=str(img_path))
@@ -511,6 +527,8 @@ else:
                                 
                                 conn = sqlite3.connect(DB_FILE)
                                 cursor = conn.cursor()
+                                cursor.execute("CREATE TABLE IF NOT EXISTS reunioes (id INTEGER PRIMARY KEY AUTOINCREMENT, data TEXT, motivo TEXT)")
+                                cursor.execute("CREATE TABLE IF NOT EXISTS presencas (id INTEGER PRIMARY KEY AUTOINCREMENT, reuniao_id INTEGER, participante_id INTEGER, status TEXT)")
                                 cursor.execute("INSERT INTO reunioes (data, motivo) VALUES (?, ?)", (data_lida, motivo_lido))
                                 reuniao_id = cursor.lastrowid
                                 
